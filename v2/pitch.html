@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Pitch Monitor</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #bb86fc;
+            --secondary-color: #03dac6;
+            --text-color: #ffffff;
+            --muted-color: #b0b0b0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--surface-color);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 300px;
+        }
+
+        h1 { margin-top: 0; font-size: 1.5rem; color: var(--muted-color); }
+
+        .note-display {
+            font-size: 6rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 10px 0;
+            min-height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .frequency-display {
+            font-size: 1.5rem;
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .cents-display {
+            font-size: 1rem;
+            color: var(--muted-color);
+            margin-bottom: 20px;
+        }
+
+        /* Tuner Bar */
+        .tuner-bar-container {
+            width: 100%;
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            position: relative;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .center-marker {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: white;
+            z-index: 2;
+        }
+
+        .tuner-indicator {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 10px;
+            background-color: var(--primary-color);
+            transform: translateX(-50%);
+            border-radius: 5px;
+            transition: left 0.1s ease-out;
+        }
+
+        .tuner-indicator.sharp { background-color: #cf6679; }
+        .tuner-indicator.flat { background-color: #cf6679; }
+        .tuner-indicator.in-tune { background-color: #03dac6; }
+
+        button {
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        button:hover { transform: scale(1.05); }
+        button:active { transform: scale(0.95); }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+
+        .status { margin-top: 15px; font-size: 0.8rem; color: #666; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pitch Monitor</h1>
+        
+        <div class="note-display" id="note">--</div>
+        <div class="frequency-display" id="frequency">0.0 Hz</div>
+        
+        <div class="tuner-bar-container">
+            <div class="center-marker"></div>
+            <div class="tuner-indicator" id="tuner-indicator"></div>
+        </div>
+        <div class="cents-display" id="cents"></div>
+
+        <button id="start-btn">Start Monitor</button>
+        <div class="status" id="status">Microphone permission required</div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('start-btn');
+        const noteElem = document.getElementById('note');
+        const freqElem = document.getElementById('frequency');
+        const centsElem = document.getElementById('cents');
+        const tunerIndicator = document.getElementById('tuner-indicator');
+        const statusElem = document.getElementById('status');
+
+        let audioContext;
+        let analyser;
+        let microphoneStream;
+        let bufferLength;
+        let dataArray;
+        let isRunning = false;
+
+        // Standard A4 frequency
+        const A4 = 440;
+        const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+        startBtn.addEventListener('click', async () => {
+            if (isRunning) return;
+            
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048; // Higher value = better precision, more processing
+                
+                source.connect(analyser);
+                
+                bufferLength = analyser.fftSize;
+                dataArray = new Float32Array(bufferLength);
+                
+                isRunning = true;
+                startBtn.disabled = true;
+                startBtn.textContent = "Monitoring...";
+                statusElem.textContent = "Listening...";
+                
+                updatePitch();
+            } catch (err) {
+                console.error(err);
+                statusElem.textContent = "Error: " + err.message;
+            }
+        });
+
+        function updatePitch() {
+            if (!isRunning) return;
+
+            analyser.getFloatTimeDomainData(dataArray);
+            
+            // Apply auto-correlation to find the fundamental frequency
+            const frequency = autoCorrelate(dataArray, audioContext.sampleRate);
+
+            if (frequency > -1) {
+                // We found a pitch
+                const noteData = getNote(frequency);
+                
+                noteElem.textContent = noteData.note;
+                freqElem.textContent = frequency.toFixed(1) + " Hz";
+                centsElem.textContent = (noteData.cents > 0 ? "+" : "") + noteData.cents + " cents";
+
+                // Visual Tuner Logic
+                const percentOffset = noteData.cents / 50; // Map -50..50 cents to -1..1
+                let leftPos = 50 + (percentOffset * 50);
+                // Clamp visual range
+                leftPos = Math.max(0, Math.min(100, leftPos));
+                
+                tunerIndicator.style.left = leftPos + "%";
+
+                // Color coding
+                tunerIndicator.className = "tuner-indicator";
+                if (Math.abs(noteData.cents) < 5) {
+                    tunerIndicator.classList.add("in-tune");
+                    noteElem.style.color = "#03dac6"; // Greenish
+                } else {
+                    tunerIndicator.classList.add(noteData.cents > 0 ? "sharp" : "flat");
+                    noteElem.style.color = "#bb86fc"; // Purple
+                }
+
+            } else {
+                // Silence or unclear pitch
+                // noteElem.textContent = "--";
+                // freqElem.textContent = "0.0 Hz";
+                // Don't clear aggressively to avoid flickering, just fade nicely if we implemented standard JS animations
+            }
+
+            requestAnimationFrame(updatePitch);
+        }
+
+        // Auto-correlation algorithm
+        // Calculates the period of the wave to determine frequency
+        function autoCorrelate(buffer, sampleRate) {
+            let SIZE = buffer.length;
+            let sumOfSquares = 0;
+            
+            // RMS (Root Mean Square) to detect signal strength (volume)
+            for (let i = 0; i < SIZE; i++) {
+                const val = buffer[i];
+                sumOfSquares += val * val;
+            }
+            const rms = Math.sqrt(sumOfSquares / SIZE);
+
+            // Gate: If signal is too quiet, return -1
+            if (rms < 0.01) return -1;
+
+            // Trim buffer to meaningful data
+            let r1 = 0;
+            let r2 = SIZE - 1;
+            const threshold = 0.2;
+            
+            // Walk in from start
+            for (let i = 0; i < SIZE / 2; i++) {
+                if (Math.abs(buffer[i]) < threshold) { r1 = i; break; }
+            }
+            // Walk in from end
+            for (let i = 1; i < SIZE / 2; i++) {
+                if (Math.abs(buffer[SIZE - i]) < threshold) { r2 = SIZE - i; break; }
+            }
+
+            buffer = buffer.slice(r1, r2);
+            SIZE = buffer.length;
+
+            // Standard Autocorrelation
+            const c = new Array(SIZE).fill(0);
+            for (let i = 0; i < SIZE; i++) {
+                for (let j = 0; j < SIZE - i; j++) {
+                    c[i] = c[i] + buffer[j] * buffer[j + i];
+                }
+            }
+
+            // Find the first peak after the first dip
+            let d = 0;
+            // 1. Skip the initial peak at offset 0
+            while (c[d] > c[d + 1]) d++;
+            
+            // 2. Find the max peak
+            let maxval = -1;
+            let maxpos = -1;
+            for (let i = d; i < SIZE; i++) {
+                if (c[i] > maxval) {
+                    maxval = c[i];
+                    maxpos = i;
+                }
+            }
+            
+            let T0 = maxpos;
+
+            // Parabolic interpolation for better precision
+            // Fits a curve over the peak to find the "true" fractional center
+            const x1 = c[T0 - 1];
+            const x2 = c[T0];
+            const x3 = c[T0 + 1];
+            const a = (x1 + x3 - 2 * x2) / 2;
+            const b = (x3 - x1) / 2;
+            
+            if (a) T0 = T0 - b / (2 * a);
+
+            return sampleRate / T0;
+        }
+
+        function getNote(frequency) {
+            const noteNum = 12 * (Math.log(frequency / A4) / Math.log(2));
+            const midi = Math.round(noteNum) + 69;
+            const note = NOTES[midi % 12];
+            
+            // Handle negative cents properly
+            const cents = Math.floor((noteNum - Math.round(noteNum)) * 100);
+            
+            return {
+                note: note,
+                cents: cents
+            };
+        }
+    </script>
+</body>
+</html>
