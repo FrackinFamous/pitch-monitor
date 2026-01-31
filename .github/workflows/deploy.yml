@@ -34,6 +34,7 @@ jobs:
           mkdir -p _site
           # Copy only the necessary files for the web app
           cp index.html _site/
+          cp -r v2 _site/
           cp app.js _site/
           cp styles.css _site/
           cp manifest.json _site/
