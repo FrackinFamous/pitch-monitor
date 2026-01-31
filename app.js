@@ -88,14 +88,14 @@ class PitchDetector {
         
         // Trim silence from beginning and end
         for (let i = 0; i < SIZE / 2; i++) {
-            if (Math.abs(buffer[i]) < threshold) {
+            if (Math.abs(buffer[i]) >= threshold) {
                 r1 = i;
                 break;
             }
         }
         
         for (let i = 1; i < SIZE / 2; i++) {
-            if (Math.abs(buffer[SIZE - i]) < threshold) {
+            if (Math.abs(buffer[SIZE - i]) >= threshold) {
                 r2 = SIZE - i;
                 break;
             }
