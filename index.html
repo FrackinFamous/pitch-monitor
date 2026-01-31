@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Free online/offline pitch monitor for musicians">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Pitch Monitor</title>
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192x192.png">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 Pitch Monitor</h1>
+            <p class="subtitle">Free Online/Offline Pitch Detection Tool</p>
+        </header>
+
+        <main>
+            <div class="control-panel">
+                <button id="startBtn" class="btn btn-primary">
+                    <span class="icon">🎤</span>
+                    Start Monitoring
+                </button>
+                <button id="stopBtn" class="btn btn-secondary" disabled>
+                    <span class="icon">⏹</span>
+                    Stop
+                </button>
+            </div>
+
+            <div class="display-section">
+                <div class="pitch-display">
+                    <div class="pitch-label">Current Pitch</div>
+                    <div id="pitch" class="pitch-value">--</div>
+                    <div id="note" class="note-value">--</div>
+                </div>
+
+                <div class="frequency-display">
+                    <div class="freq-label">Frequency</div>
+                    <div id="frequency" class="freq-value">-- Hz</div>
+                </div>
+
+                <div class="tuning-indicator">
+                    <div class="indicator-label">Tuning</div>
+                    <div class="indicator-bar">
+                        <div class="indicator-center"></div>
+                        <div id="tuningNeedle" class="tuning-needle"></div>
+                    </div>
+                    <div id="cents" class="cents-value">0¢</div>
+                </div>
+            </div>
+
+            <canvas id="waveform" class="waveform-canvas"></canvas>
+
+            <div class="info-section">
+                <div class="status-indicator">
+                    <span id="status" class="status">Ready</span>
+                </div>
+                <div class="install-prompt" id="installPrompt" style="display: none;">
+                    <button id="installBtn" class="btn btn-install">
+                        📱 Install App
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Works online and offline • Built with Web Audio API</p>
+            <p class="version">v1.0.0</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('Service Worker registered', reg))
+                    .catch(err => console.log('Service Worker registration failed', err));
+            });
+        }
+
+        // PWA install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installPrompt').style.display = 'block';
+        });
+
+        document.getElementById('installBtn')?.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response: ${outcome}`);
+                deferredPrompt = null;
+                document.getElementById('installPrompt').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

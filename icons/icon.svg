@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e94560;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c23050;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#1a1a2e"/>
+  
+  <!-- Musical note icon -->
+  <g fill="url(#grad1)">
+    <!-- Note stem -->
+    <rect x="200" y="120" width="20" height="200" rx="10"/>
+    
+    <!-- Note head -->
+    <ellipse cx="210" cy="320" rx="45" ry="35" transform="rotate(-20 210 320)"/>
+    
+    <!-- Frequency wave -->
+    <path d="M 280 200 Q 310 180, 340 200 T 400 200" 
+          stroke="#00ff88" 
+          stroke-width="12" 
+          fill="none" 
+          stroke-linecap="round"/>
+    <path d="M 280 240 Q 310 220, 340 240 T 400 240" 
+          stroke="#00ff88" 
+          stroke-width="12" 
+          fill="none" 
+          stroke-linecap="round"/>
+    <path d="M 280 280 Q 310 260, 340 280 T 400 280" 
+          stroke="#00ff88" 
+          stroke-width="12" 
+          fill="none" 
+          stroke-linecap="round"/>
+  </g>
+</svg>
